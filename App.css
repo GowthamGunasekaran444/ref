@@ -1,0 +1,124 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
+    "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.App {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  display: flex; /* Use flexbox to place navbar and main content side-by-side */
+}
+
+.main-content {
+  flex-grow: 1; /* Allow main content to take remaining space */
+  padding: 80px 20px 20px 20px;
+  transition: margin-left 0.3s ease; /* Transition for margin-left */
+  min-height: 100vh;
+}
+
+/* Ant Design Select customization for blue theme */
+.ant-select-dropdown {
+  background-color: #1e40af !important;
+}
+
+.ant-select-item {
+  color: white !important;
+}
+
+.ant-select-item:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ant-select-item-option-selected {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.ant-select-selector {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+.ant-select-arrow {
+  color: white !important;
+}
+
+/* Date Picker customization for blue theme */
+.ant-picker {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+.ant-picker-input > input {
+  color: white !important;
+}
+
+.ant-picker-input > input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.ant-picker-suffix {
+  color: white !important;
+}
+
+.ant-picker-separator {
+  color: white !important;
+}
+
+.ant-picker-range-separator {
+  color: white !important;
+}
+
+/* Button hover effects for blue theme */
+.ant-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Date picker dropdown styling */
+.ant-picker-dropdown {
+  background-color: #1e40af !important;
+}
+
+.ant-picker-panel {
+  background-color: #1e40af !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.ant-picker-header {
+  border-bottom-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.ant-picker-header button {
+  color: white !important;
+}
+
+.ant-picker-header button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ant-picker-content th,
+.ant-picker-content td {
+  color: white !important;
+}
+
+.ant-picker-cell:hover .ant-picker-cell-inner {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ant-picker-cell-selected .ant-picker-cell-inner {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.ant-picker-cell-in-range .ant-picker-cell-inner {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
