@@ -297,3 +297,62 @@ const ExportButton = ({ columns, data }) => (
 );
 
 export default ExportButton;
+
+
+import { saveAs } from "file-saver";
+import HtmlDocx from "html-docx-js-typescript";
+
+interface ExportProps {
+  jsonData: any[];
+}
+
+const ExportDocx: React.FC<ExportProps> = ({ jsonData }) => {
+  const exportToDocx = () => {
+    if (!jsonData || jsonData.length === 0) {
+      alert("No data available");
+      return;
+    }
+
+    // Extract keys (columns)
+    const allColumns = Object.keys(jsonData[0]);
+    const truncatedColumns = allColumns.slice(0, 4);
+
+    // Build table header
+    let html = `<table border="1" style="border-collapse:collapse; width:700px;">`;
+    html += "<thead><tr>";
+    truncatedColumns.forEach(col => {
+      html += `<th style="padding:4px; text-align:left;">${col}</th>`;
+    });
+    html += "</tr></thead>";
+
+    // Build table body
+    html += "<tbody>";
+    jsonData.forEach(row => {
+      html += "<tr>";
+      truncatedColumns.forEach(col => {
+        html += `<td style="padding:4px;">${row[col] ?? ""}</td>`;
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+
+    // Add footer note if truncated
+    if (allColumns.length > 4) {
+      html += `<p style="color:gray; font-size:12px; margin-top:10px;">
+        Table truncated. Download full data as CSV for original columns.
+      </p>`;
+    }
+
+    // Convert HTML → DOCX
+    const converted = HtmlDocx.asBlob(html);
+    saveAs(converted, "table.docx");
+  };
+
+  return (
+    <button onClick={exportToDocx}>
+      Export DOCX
+    </button>
+  );
+};
+
+export default ExportDocx;
