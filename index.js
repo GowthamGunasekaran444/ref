@@ -210,3 +210,90 @@ export default App;
 }
 
 export default ResizableTitle;
+
+
+import React from "react";
+import {
+  Page,
+  Text,
+  View,
+  Document,
+  StyleSheet,
+  PDFDownloadLink
+} from "@react-pdf/renderer";
+
+// Styles
+const styles = StyleSheet.create({
+  page: { padding: 20 },
+  table: {
+    display: "table",
+    width: "100%",
+    borderStyle: "solid",
+    borderWidth: 1,
+    borderRightWidth: 0,
+    borderBottomWidth: 0
+  },
+  tableRow: { flexDirection: "row" },
+  tableCol: {
+    width: "25%", // since we are showing only 4 columns
+    borderStyle: "solid",
+    borderWidth: 1,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    padding: 4
+  },
+  tableCell: { fontSize: 10 },
+  footer: { marginTop: 10, fontSize: 9, color: "gray" }
+});
+
+// PDF Component
+const TablePDF = ({ columns, data }) => {
+  // Truncate to only 4 columns
+  const truncatedColumns = columns.slice(0, 4);
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.table}>
+          {/* Header */}
+          <View style={styles.tableRow}>
+            {truncatedColumns.map((col, idx) => (
+              <View key={idx} style={styles.tableCol}>
+                <Text style={[styles.tableCell, { fontWeight: "bold" }]}>{col}</Text>
+              </View>
+            ))}
+          </View>
+          {/* Rows */}
+          {data.map((row, rowIndex) => (
+            <View key={rowIndex} style={styles.tableRow}>
+              {truncatedColumns.map((col, colIndex) => (
+                <View key={colIndex} style={styles.tableCol}>
+                  <Text style={styles.tableCell}>{row[col]}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+
+        {/* Footer note */}
+        {columns.length > 4 && (
+          <Text style={styles.footer}>
+            Table truncated. Download full data as CSV for original columns.
+          </Text>
+        )}
+      </Page>
+    </Document>
+  );
+};
+
+// Usage with PDF download
+const ExportButton = ({ columns, data }) => (
+  <PDFDownloadLink
+    document={<TablePDF columns={columns} data={data} />}
+    fileName="table.pdf"
+  >
+    {({ loading }) => (loading ? "Generating PDF..." : "Download PDF")}
+  </PDFDownloadLink>
+);
+
+export default ExportButton;
