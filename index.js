@@ -1,3 +1,7 @@
+https://codesandbox.io/p/devbox/resizable-column-antd-5-27-4-forked-fw867k?workspaceId=ws_CrgtGvmivQfUBtLVpSKjPw
+
+
+
 import React from "react";
 import { Card, Progress, Typography } from "antd";
 import { ArrowRightOutlined } from "@ant-design/icons";
