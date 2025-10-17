@@ -171,3 +171,142 @@ def get_risk_by_type(filters: RiskFilter, db: Session = Depends(get_db)):
     return {"status": "success", "data": result}
 
 app.include_router(main_router, prefix="/api", tags=["Risk Analysis"])
+
+
+
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
+
+// -----------------------------------------------
+// 🧩 API Endpoints (adjust if needed)
+const BASE_URL = "http://127.0.0.1:8000/api";
+
+// -----------------------------------------------
+// 🎯 1️⃣ Fetch Cascading Filter Data
+export const fetchCascadeFilters = createAsyncThunk(
+  "risk/fetchCascadeFilters",
+  async (filters = {}, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${BASE_URL}/cascade-filter`, filters);
+      return response.data.data; // expecting { bg, bu, country, plant, time }
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch cascading filters"
+      );
+    }
+  }
+);
+
+// -----------------------------------------------
+// 🎯 2️⃣ Fetch Risk Summary by Type
+export const fetchRiskSummary = createAsyncThunk(
+  "risk/fetchRiskSummary",
+  async (filters, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${BASE_URL}/get-risk-by-type`, filters);
+      return response.data.data; // expecting { average_risk_score, distribution }
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch risk summary"
+      );
+    }
+  }
+);
+
+// -----------------------------------------------
+// 🧱 Initial State
+const initialState = {
+  cascadingFilters: {
+    defaultValues: {
+      bg: [],
+      bu: [],
+      country: [],
+      plant: [],
+      time: [],
+    },
+    filteredValues: {
+      bg: [],
+      bu: [],
+      country: [],
+      plant: [],
+      time: [],
+    },
+  },
+  appliedFilters: {
+    bg: [],
+    bu: [],
+    country: [],
+    plant: [],
+    time: [],
+    riskType: "",
+  },
+  riskSummary: {
+    average_risk_score: 0,
+    distribution: {
+      high: 0,
+      medium: 0,
+      low: 0,
+    },
+  },
+  loading: false,
+  error: null,
+};
+
+// -----------------------------------------------
+// 🧠 Slice Definition
+const riskSlice = createSlice({
+  name: "risk",
+  initialState,
+  reducers: {
+    // 🧩 Update applied filters locally
+    setAppliedFilters: (state, action) => {
+      state.appliedFilters = { ...state.appliedFilters, ...action.payload };
+    },
+
+    // 🧩 Reset all filters
+    resetFilters: (state) => {
+      state.appliedFilters = initialState.appliedFilters;
+    },
+  },
+
+  // -----------------------------------------------
+  // ⚙️ Async Reducers (pending / fulfilled / rejected)
+  extraReducers: (builder) => {
+    // CASCADE FILTER HANDLERS
+    builder
+      .addCase(fetchCascadeFilters.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCascadeFilters.fulfilled, (state, action) => {
+        state.loading = false;
+        state.cascadingFilters.defaultValues = action.payload;
+        state.cascadingFilters.filteredValues = action.payload;
+      })
+      .addCase(fetchCascadeFilters.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // RISK SUMMARY HANDLERS
+    builder
+      .addCase(fetchRiskSummary.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchRiskSummary.fulfilled, (state, action) => {
+        state.loading = false;
+        state.riskSummary = action.payload;
+      })
+      .addCase(fetchRiskSummary.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+  },
+});
+
+// -----------------------------------------------
+// 🧾 Export Actions & Reducer
+export const { setAppliedFilters, resetFilters } = riskSlice.actions;
+export default riskSlice.reducer;
+
