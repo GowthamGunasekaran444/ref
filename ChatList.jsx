@@ -1,3 +1,20 @@
+
+def build_in_clause(column_name, values, param_dict):
+    """
+    Dynamically build a safe IN clause for SQL Server.
+    Example:
+        build_in_clause('bu', ['India','US'], params)
+        → returns "bu IN (:bu_0, :bu_1)"
+    """
+    if not values:
+        return None
+
+    placeholders = []
+    for i, val in enumerate(values):
+        key = f"{column_name}_{i}"
+        param_dict[key] = val
+        placeholders.append(f":{key}")
+    return f"{column_name} IN ({', '.join(placeholders)})"
 🧩 schema.py
 from pydantic import BaseModel
 from typing import List, Optional
