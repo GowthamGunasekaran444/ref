@@ -1,267 +1,138 @@
-from sqlalchemy import Column, String, Integer, Float
-from app.core.database import Base
-
-class PlantData(Base):
-    __tablename__ = "plant_data"
-
-    BGNAME = Column(String, primary_key=True)
-    BUNAME = Column(String, primary_key=True)
-    COUNTRYNAME = Column(String, primary_key=True)
-    PLANTNAME = Column(String, primary_key=True)
-    YEAR = Column(Integer, primary_key=True)
-    MONTH = Column(Integer, primary_key=True)
-    TOTAL = Column(Float)
-    INCIDENT = Column(Float)
-    RSCORE = Column(Float)
-    RLABEL = Column(String)
-    RTYPE = Column(String)
-
-🧩 controllers/filter_controller.py
-from sqlalchemy.orm import Session
-from app.models.plant_data_model import PlantData
-
-def get_unique_filters(db: Session):
-    """Fetch all unique values for dropdowns"""
-    return {
-        "business_groups": [row[0] for row in db.query(PlantData.BGNAME).distinct().all()],
-        "business_units": [row[0] for row in db.query(PlantData.BUNAME).distinct().all()],
-        "countries": [row[0] for row in db.query(PlantData.COUNTRYNAME).distinct().all()],
-        "plants": [row[0] for row in db.query(PlantData.PLANTNAME).distinct().all()],
-        "time": [f"{row[0]}-{row[1]:02d}" for row in db.query(PlantData.YEAR, PlantData.MONTH).distinct().all()]
-    }
-
-
-def get_cascading_filters(db: Session, bgname=None, buname=None, country=None, plant=None, year=None, month=None):
-    """Fetch filtered dropdown values based on previous selection"""
-    query = db.query(PlantData)
-
-    if bgname:
-        query = query.filter(PlantData.BGNAME == bgname)
-    if buname:
-        query = query.filter(PlantData.BUNAME == buname)
-    if country:
-        query = query.filter(PlantData.COUNTRYNAME == country)
-    if plant:
-        query = query.filter(PlantData.PLANTNAME == plant)
-    if year:
-        query = query.filter(PlantData.YEAR == year)
-    if month:
-        query = query.filter(PlantData.MONTH == month)
-
-    return {
-        "business_groups": [row[0] for row in query.with_entities(PlantData.BGNAME).distinct()],
-        "business_units": [row[0] for row in query.with_entities(PlantData.BUNAME).distinct()],
-        "countries": [row[0] for row in query.with_entities(PlantData.COUNTRYNAME).distinct()],
-        "plants": [row[0] for row in query.with_entities(PlantData.PLANTNAME).distinct()],
-        "time": [f"{row[0]}-{row[1]:02d}" for row in query.with_entities(PlantData.YEAR, PlantData.MONTH).distinct()]
-    }
-
-
-🧩 routers/filter_router.py
-
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from app.core.database import SessionLocal
-from app.controllers.filter_controller import get_unique_filters, get_cascading_filters
-
-router = APIRouter(prefix="/filters", tags=["Filters"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-@router.get("/unique")
-def fetch_unique_filters(db: Session = Depends(get_db)):
-    """Return all unique filter values"""
-    return get_unique_filters(db)
-
-@router.get("/cascade")
-def fetch_cascading_filters(
-    bgname: str = Query(None),
-    buname: str = Query(None),
-    country: str = Query(None),
-    plant: str = Query(None),
-    year: int = Query(None),
-    month: int = Query(None),
-    db: Session = Depends(get_db)
-):
-    """Return filtered cascading values"""
-    return get_cascading_filters(db, bgname, buname, country, plant, year, month)
-
-🔹 controllers/risk_controller.py
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from app.models.plant_data_model import PlantData
-
-def get_risk_ordscore(db: Session, risk_ord_time: str):
-    """Calculate weighted ORDSCORE percentage for given ORD_TIME"""
-    if not risk_ord_time:
-        return {"error": "risk_ord_time is required"}
-
-    # Query aggregation
-    result = (
-        db.query(
-            func.sum(PlantData.TOTAL).label("total_sum"),
-            func.sum(PlantData.RSCORE).label("ordscore_sum")
-        )
-        .filter(PlantData.RTYPE == risk_ord_time)
-        .first()
-    )
-
-    if not result or not result.total_sum:
-        return {"message": f"No data found for ORD_TIME={risk_ord_time}"}
-
-    total_sum = result.total_sum or 0
-    ordscore_sum = result.ordscore_sum or 0
-
-    # Weighted logic (SUM(RSCORE) * SUM(TOTAL)) / SUM(TOTAL)
-    final_value = (ordscore_sum * total_sum) / total_sum if total_sum != 0 else 0
-    percentage = round(final_value, 2)
-
-    return {
-        "risk_ord_time": risk_ord_time,
-        "total_sum": total_sum,
-        "ordscore_sum": ordscore_sum,
-        "final_percentage": percentage
-    }
-🔹 Update routers/filter_router.py → Add Risk Endpoint
-
-
-from app.controllers.risk_controller import get_risk_ordscore
-
-@router.get("/risk/ordscore")
-def fetch_risk_ordscore(
-    risk_ord_time: str,
-    db: Session = Depends(get_db)
-):
-    """Return computed ORDSCORE % for given risk ORD_TIME"""
-    return get_risk_ordscore(db, risk_ord_time)
-
-
-
-
-from app.controllers.risk_controller import get_risk_ordscore
-
-@router.get("/risk/ordscore")
-def fetch_risk_ordscore(
-    risk_ord_time: str,
-    db: Session = Depends(get_db)
-):
-    """Return computed ORDSCORE % for given risk ORD_TIME"""
-    return get_risk_ordscore(db, risk_ord_time)
-
-
-from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
-from app.models.plant_data_model import PlantData
-
-def get_risk_ordscore(
-    db: Session,
-    risk_ord_time: str,
-    business_groups: list[str] = None,
-    business_units: list[str] = None,
-    countries: list[str] = None,
-    plants: list[str] = None,
-    times: list[str] = None
-):
-    """Calculate weighted ORDSCORE% for a given ORD_TIME with optional multi-filters"""
-
-    if not risk_ord_time:
-        return {"error": "risk_ord_time is required"}
-
-    query = db.query(
-        func.sum(PlantData.TOTAL).label("total_sum"),
-        func.sum(PlantData.RSCORE).label("ordscore_sum")
-    ).filter(PlantData.ORD_TIME == risk_ord_time)
-
-    # Apply optional filters
-    if business_groups:
-        query = query.filter(PlantData.BGNAME.in_(business_groups))
-    if business_units:
-        query = query.filter(PlantData.BUNAME.in_(business_units))
-    if countries:
-        query = query.filter(PlantData.COUNTRYNAME.in_(countries))
-    if plants:
-        query = query.filter(PlantData.PLANTNAME.in_(plants))
-    if times:
-        time_filters = []
-        for t in times:
-            try:
-                year, month = map(int, t.split("-"))
-                time_filters.append(and_(PlantData.YEAR == year, PlantData.MONTH == month))
-            except Exception:
-                continue
-        if time_filters:
-            query = query.filter(or_(*time_filters))
-
-    result = query.first()
-
-    if not result or not result.total_sum:
-        return {"message": "No data found for given filters"}
-
-    total_sum = result.total_sum or 0
-    ordscore_sum = result.ordscore_sum or 0
-
-    # Weighted formula
-    final_value = (ordscore_sum * total_sum) / total_sum if total_sum != 0 else 0
-    percentage = round(final_value, 2)
-
-    return {
-        "risk_ord_time": risk_ord_time,
-        "filters": {
-            "business_groups": business_groups or [],
-            "business_units": business_units or [],
-            "countries": countries or [],
-            "plants": plants or [],
-            "times": times or []
+option = {
+    title: {
+      text: "Incident Breakdown",
+      left: "center",
+      top: 10,
+      textStyle: {
+        fontSize: 14,
+        fontWeight: "bold",
+      },
+    },
+    tooltip: {
+      formatter: (info) => `${info.name}: ${info.value}`,
+    },
+    series: [
+      {
+        type: "treemap",
+        roam: false,
+        nodeClick: false,
+        breadcrumb: { show: false },
+        label: {
+          show: true,
+          formatter: "{b}",
+          color: "#fff",
+          fontSize: 12,
         },
-        "total_sum": total_sum,
-        "ordscore_sum": ordscore_sum,
-        "final_percentage": percentage
-    }
+        itemStyle: {
+          borderColor: "#fff",
+          borderWidth: 1,
+        },
+        width: "100%",
+        height: "400px",
+        // ✅ Keep it in one line
+        leafDepth: 10,
+        // Layout control
+        upperLabel: { show: false },
+        squareRatio: 10, // forces rectangles to be wider (helps flatten)
+        data: [
+          { name: "Incident A", value: 40, itemStyle: { color: "#0D47A1" } },
+          { name: "Incident B", value: 30, itemStyle: { color: "#1565C0" } },
+          { name: "Incident C", value: 20, itemStyle: { color: "#1976D2" } },
+          { name: "Incident D", value: 10, itemStyle: { color: "#1E88E5" } },
+        ],
+      },
+    ],
+  };
 
 
 
-      from typing import List, Optional
-from app.controllers.risk_controller import get_risk_ordscore
-
-@router.get("/risk/ordscore")
-def fetch_risk_ordscore(
-    risk_ord_time: str,
-    business_groups: Optional[List[str]] = Query(None),
-    business_units: Optional[List[str]] = Query(None),
-    countries: Optional[List[str]] = Query(None),
-    plants: Optional[List[str]] = Query(None),
-    times: Optional[List[str]] = Query(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Return weighted ORDSCORE % for given ORD_TIME
-    Supports multi-select filters for business group, unit, country, plant, and time
-    """
-    return get_risk_ordscore(
-        db=db,
-        risk_ord_time=risk_ord_time,
-        business_groups=business_groups,
-        business_units=business_units,
-        countries=countries,
-        plants=plants,
-        times=times
-    )
-{
-  "risk_ord_time": "COMPLIANT",
-  "filters": {
-    "business_groups": ["BG1"],
-    "business_units": [],
-    "countries": ["India", "Germany"],
-    "plants": [],
-    "times": ["2024-01", "2024-02"]
-  },
-  "total_sum": 8200.0,
-  "ordscore_sum": 1560.0,
-  "final_percentage": 19.02
-}
-
+option = {
+    tooltip: {
+      trigger: "item",
+      backgroundColor: "#000", // black tooltip background
+      textStyle: {
+        color: "#fff", // white text
+        fontSize: 13,
+        fontWeight: 500,
+      },
+      borderWidth: 0,
+      formatter: (params) => {
+        return `<div style="text-align:center;">
+                  ${params.name}<br/><b>${params.percent}%</b>
+                </div>`;
+      },
+    },
+    legend: {
+      orient: "vertical", // vertical legend
+      left: "left", // aligned to left
+      top: "middle", // vertically centered
+      itemWidth: 14,
+      itemHeight: 14,
+      textStyle: {
+        color: "#333",
+        fontSize: 12,
+      },
+      type: "scroll", // enable scroll for large legends
+      pageButtonItemGap: 5,
+      pageIconColor: "#000",
+      pageTextStyle: { color: "#000" },
+    },
+    series: [
+      {
+        name: "Root Cause",
+        type: "pie",
+        radius: ["50%", "75%"], // donut chart
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 4,
+          borderColor: "#fff",
+          borderWidth: 2,
+        },
+        label: {
+          show: false, // hide inner label (center hover text)
+          position: "center",
+        },
+        emphasis: {
+          label: {
+            show: false, // disable hover label in the center
+          },
+        },
+        labelLine: {
+          show: false,
+        },
+        data: [
+          { value: 15, name: "Chemical Attribution" },
+          { value: 12, name: "Transport and Delivery" },
+          { value: 10, name: "Environmental Contamination" },
+          { value: 8, name: "Batch Error" },
+          { value: 6, name: "Delivery Documentation" },
+          { value: 5, name: "Process Variation" },
+          { value: 5, name: "Temperature Deviation" },
+          { value: 4, name: "Operator Error" },
+          { value: 4, name: "System Downtime" },
+          { value: 3, name: "Vendor Issue" },
+          { value: 2, name: "Supply Delay" },
+          { value: 2, name: "Material Defect" },
+          { value: 2, name: "Calibration Error" },
+          { value: 1, name: "Electrical Fault" },
+          { value: 1, name: "Documentation Error" },
+          { value: 1, name: "Packaging Issue" },
+          { value: 1, name: "Testing Delay" },
+          { value: 1, name: "Sensor Fault" },
+          { value: 1, name: "Unknown Cause" },
+        ],
+        color: [
+          "#003f7f",
+          "#0059b3",
+          "#0073e6",
+          "#3399ff",
+          "#66b2ff",
+          "#004080",
+          "#0066cc",
+          "#0080ff",
+          "#1a8cff",
+          "#4da6ff",
+        ],
+      },
+    ],
+  };
