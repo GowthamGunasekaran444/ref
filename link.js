@@ -1,138 +1,126 @@
-option = {
-    title: {
-      text: "Incident Breakdown",
-      left: "center",
-      top: 10,
-      textStyle: {
-        fontSize: 14,
-        fontWeight: "bold",
-      },
-    },
-    tooltip: {
-      formatter: (info) => `${info.name}: ${info.value}`,
-    },
-    series: [
-      {
-        type: "treemap",
-        roam: false,
-        nodeClick: false,
-        breadcrumb: { show: false },
-        label: {
-          show: true,
-          formatter: "{b}",
-          color: "#fff",
-          fontSize: 12,
-        },
-        itemStyle: {
-          borderColor: "#fff",
-          borderWidth: 1,
-        },
-        width: "100%",
-        height: "400px",
-        // ✅ Keep it in one line
-        leafDepth: 10,
-        // Layout control
-        upperLabel: { show: false },
-        squareRatio: 10, // forces rectangles to be wider (helps flatten)
-        data: [
-          { name: "Incident A", value: 40, itemStyle: { color: "#0D47A1" } },
-          { name: "Incident B", value: 30, itemStyle: { color: "#1565C0" } },
-          { name: "Incident C", value: 20, itemStyle: { color: "#1976D2" } },
-          { name: "Incident D", value: 10, itemStyle: { color: "#1E88E5" } },
-        ],
-      },
-    ],
-  };
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime
+from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
+from app.database import Base
+
+class UserNotification(Base):
+    __tablename__ = "UserNotifications"
+
+    UserID = Column(UNIQUEIDENTIFIER, primary_key=True, default=uuid.uuid4)
+    User = Column(String(255), nullable=False)
+
+    NotificationType = Column(String(255))
+    BusinessGroupName = Column(String(255))
+    BusinessUnitName = Column(String(255))
+    CountryName = Column(String(255))
+    PlantName = Column(String(255))
+    ListType = Column(String(255))
+
+    CreatedDate = Column(DateTime, default=datetime.utcnow)
+    ModifiedDate = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 
-option = {
-    tooltip: {
-      trigger: "item",
-      backgroundColor: "#000", // black tooltip background
-      textStyle: {
-        color: "#fff", // white text
-        fontSize: 13,
-        fontWeight: 500,
-      },
-      borderWidth: 0,
-      formatter: (params) => {
-        return `<div style="text-align:center;">
-                  ${params.name}<br/><b>${params.percent}%</b>
-                </div>`;
-      },
-    },
-    legend: {
-      orient: "vertical", // vertical legend
-      left: "left", // aligned to left
-      top: "middle", // vertically centered
-      itemWidth: 14,
-      itemHeight: 14,
-      textStyle: {
-        color: "#333",
-        fontSize: 12,
-      },
-      type: "scroll", // enable scroll for large legends
-      pageButtonItemGap: 5,
-      pageIconColor: "#000",
-      pageTextStyle: { color: "#000" },
-    },
-    series: [
-      {
-        name: "Root Cause",
-        type: "pie",
-        radius: ["50%", "75%"], // donut chart
-        avoidLabelOverlap: true,
-        itemStyle: {
-          borderRadius: 4,
-          borderColor: "#fff",
-          borderWidth: 2,
-        },
-        label: {
-          show: false, // hide inner label (center hover text)
-          position: "center",
-        },
-        emphasis: {
-          label: {
-            show: false, // disable hover label in the center
-          },
-        },
-        labelLine: {
-          show: false,
-        },
-        data: [
-          { value: 15, name: "Chemical Attribution" },
-          { value: 12, name: "Transport and Delivery" },
-          { value: 10, name: "Environmental Contamination" },
-          { value: 8, name: "Batch Error" },
-          { value: 6, name: "Delivery Documentation" },
-          { value: 5, name: "Process Variation" },
-          { value: 5, name: "Temperature Deviation" },
-          { value: 4, name: "Operator Error" },
-          { value: 4, name: "System Downtime" },
-          { value: 3, name: "Vendor Issue" },
-          { value: 2, name: "Supply Delay" },
-          { value: 2, name: "Material Defect" },
-          { value: 2, name: "Calibration Error" },
-          { value: 1, name: "Electrical Fault" },
-          { value: 1, name: "Documentation Error" },
-          { value: 1, name: "Packaging Issue" },
-          { value: 1, name: "Testing Delay" },
-          { value: 1, name: "Sensor Fault" },
-          { value: 1, name: "Unknown Cause" },
-        ],
-        color: [
-          "#003f7f",
-          "#0059b3",
-          "#0073e6",
-          "#3399ff",
-          "#66b2ff",
-          "#004080",
-          "#0066cc",
-          "#0080ff",
-          "#1a8cff",
-          "#4da6ff",
-        ],
-      },
-    ],
-  };
+
+from pydantic import BaseModel
+from typing import Optional
+import uuid
+from datetime import datetime
+
+class NotificationBase(BaseModel):
+    User: str
+    NotificationType: Optional[str] = None
+    BusinessGroupName: Optional[str] = None
+    BusinessUnitName: Optional[str] = None
+    CountryName: Optional[str] = None
+    PlantName: Optional[str] = None
+    ListType: Optional[str] = None
+
+class NotificationUpdate(NotificationBase):
+    UserID: uuid.UUID
+
+class NotificationResponse(NotificationBase):
+    UserID: uuid.UUID
+    CreatedDate: datetime
+    ModifiedDate: datetime
+
+    class Config:
+        orm_mode = True
+
+from sqlalchemy.orm import Session
+from app.models.user_notification import UserNotification
+from app.schemas.notification_schema import NotificationUpdate
+from datetime import datetime
+
+class NotificationService:
+
+    @staticmethod
+    def get_by_user_id(db: Session, user_id: str):
+        return db.query(UserNotification).filter(UserNotification.UserID == user_id).all()
+
+    @staticmethod
+    def insert_or_update(db: Session, data: NotificationUpdate):
+        existing = db.query(UserNotification).filter(
+            UserNotification.UserID == data.UserID
+        ).first()
+
+        if existing:
+            # Update allowed fields only
+            existing.NotificationType = data.NotificationType
+            existing.BusinessGroupName = data.BusinessGroupName
+            existing.BusinessUnitName = data.BusinessUnitName
+            existing.CountryName = data.CountryName
+            existing.PlantName = data.PlantName
+            existing.ListType = data.ListType
+            existing.ModifiedDate = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing
+
+        # Insert new
+        new_record = UserNotification(
+            UserID=data.UserID,
+            User=data.User,
+            NotificationType=data.NotificationType,
+            BusinessGroupName=data.BusinessGroupName,
+            BusinessUnitName=data.BusinessUnitName,
+            CountryName=data.CountryName,
+            PlantName=data.PlantName,
+            ListType=data.ListType,
+        )
+        db.add(new_record)
+        db.commit()
+        db.refresh(new_record)
+        return new_record
+
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from app.database import SessionLocal
+from app.services.notification_service import NotificationService
+from app.schemas.notification_schema import NotificationUpdate, NotificationResponse
+from typing import List
+
+router = APIRouter(prefix="/notifications", tags=["Notifications"])
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# GET Notification API
+@router.get("/get/{user_id}", response_model=List[NotificationResponse])
+def get_notification(user_id: str, db: Session = Depends(get_db)):
+    return NotificationService.get_by_user_id(db, user_id)
+
+
+# INSERT OR UPDATE Notification API
+@router.post("/update", response_model=NotificationResponse)
+def update_notification(data: NotificationUpdate, db: Session = Depends(get_db)):
+    return NotificationService.insert_or_update(db, data)
+
+
