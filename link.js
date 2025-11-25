@@ -1,24 +1,27 @@
 import { useCallback } from "react";
 
 export function useExcelExporter() {
-  const exportToExcel = useCallback(async (csvString, fileName = "export.xlsx") => {
-    try {
-      // Dynamically import XLSX to avoid adding to main build
-      const XLSX = await import("xlsx");
-      
-      // Convert CSV → Worksheet
-      const worksheet = XLSX.utils.csv_to_sheet(csvString);
+  const exportToExcel = useCallback(
+    async (csvString: string, fileName: string = "export.xlsx"): Promise<void> => {
+      try {
+        // Lazy-load XLSX only when needed
+        const XLSX = await import("xlsx");
 
-      // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+        // Create worksheet from CSV
+        const worksheet = XLSX.utils.csv_to_sheet(csvString);
 
-      // Download Excel file
-      XLSX.writeFile(workbook, fileName);
-    } catch (err) {
-      console.error("Excel export failed:", err);
-    }
-  }, []);
+        // Create workbook and append sheet
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+        // Trigger download
+        XLSX.writeFile(workbook, fileName);
+      } catch (error) {
+        console.error("Excel export failed:", error);
+      }
+    },
+    []
+  );
 
   return { exportToExcel };
 }
